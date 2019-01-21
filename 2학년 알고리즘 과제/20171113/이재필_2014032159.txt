@@ -1,0 +1,336 @@
+/*
+이재필_2014032159
+
+저는 해쉬테이블을 구현한 배열을 이진트리의 더블포인터로 만들고
+그 이진트리에 첫번째 데이터가 들어올때만 해당 이진트리를 동적할당하는 방식을 사용했습니다.
+
+키의 충돌이 일어날때를 대비해 키가 두개들어있는 노드를 만들었는데 각각 key와 hiddenKey 라는 이름의 변수입니다.
+이 key는 일반적으로 충돌이 일어나는 단순한 key지만 hiddenKey는 절대 충돌이 일어나지 않는 키입니다.
+이유는 단순한데 예를 들어 abc라는 문자열이 들어오면 a 97 b 98 c 99의 아스키코드를 사용해 실수 979899를 만든것입니다.
+scanf로 입력할수 있는 문자는 " " (32)에서 ~(126) 으로 어떠한 조합으로도 같은문자가 아닌이상 같은 hiddenKey는 나올수없습니다
+하지만 너무 큰 수이므로 이를 해쉬테이블에 바로 사용할수는 없습니다.
+
+이 hiddenKey의 사용방법은 이진트리에서 왼쪽노드로 가려면 작을경우 오른쪽노드로 가려면 클경우 에서 기준으로 사용됩니다
+*/
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+//Tree.h
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define STRINGLEN 40
+
+struct sNode
+{
+	int key;					//자신의 주소를 정할 자신의 키
+	int hiddenkey;				//충돌시 사용할 자신의 고유키 (문자혹은 숫자 혹은 특수기호를 받는한 절대 다른 문자열과 같은 값이 나올수없다)
+	char str[STRINGLEN];		//저장된 문자열
+	sNode * left;				//자신의 왼쪽 자식 노드
+	sNode * right;				//자신의 오른쪽 자식 노드
+};
+
+int Key(char * _str);				//키 생성 함수
+int HiddenKey(char * _str);			//고유키 생성 함수
+sNode * CreateNode(char * _str);	//노드 생성 함수
+
+struct sTree						//트리 구조체
+{
+	sNode * root;					//루트 노드
+	int count;						//노드의 갯수
+};
+
+void AddNode(sTree * _tree, sNode * _visit, sNode * _newNode);		//노드를 추가하는 함수
+sNode * SearchNode(sTree * _tree, sNode * _visit, int _hiddenKey);	//노드 탐색
+void DestroyTree(sTree * _tree, sNode * _visit);					//트리삭제함수
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+//HashTable.h
+
+#include "Tree.h"
+
+struct sHashTable				//해쉬 테이블 구조체
+{
+	sTree ** tree;				//트리의 포인터 배열(사용하는곳만 동적할당하고 사용하지 않는곳은 4바이트만 할당)
+};
+
+sHashTable * CreateHashTable();						//해쉬테이블 생성 함수
+sTree * CreateTree();								//트리 생성 함수
+sNode * Get(sHashTable * _hash, char * _str);		//겟
+void Set(sHashTable * _hash, char * _str);			//셋
+int KeyTrans(int _key);								//키 변환
+void DestroyHashTable(sHashTable * _hash);			//해쉬 테이블 삭제
+
+
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+//Tree.cpp
+
+#include "Tree.h"
+
+//키 생성 함수
+int Key(char * _str)								
+{
+	int newKey = 0;
+
+	for (int i = 0; i < strlen(_str); i++)
+	{
+		newKey += _str[i];							//유니코드를 전부 더함
+	}
+
+	return newKey;
+}
+
+//고유키 생성 함수
+int HiddenKey(char * _str)							
+{
+	char str[255] = "";
+	char temp[10] = "";
+
+	for (int i = 0; i < strlen(_str); i++)			
+	{
+		sprintf(temp, "%d", int(_str[i]));			//유니코드를 전부 이어붙혀서 하나의 숫자로 만듬
+		strcat(str, temp);							//예 ) 문자열 "abc" -> 정수 979899
+	}												//너무 큰 수라 해쉬테이블에는 사용하지않음
+
+	return atoi(str);								
+}
+
+//노드 생성 함수
+sNode * CreateNode(char * _str)						
+{
+	sNode * newNode = new sNode;			
+
+	strcpy_s(newNode->str, _str);
+	newNode->left = nullptr;
+	newNode->right = nullptr;
+	newNode->key = Key(_str);
+	newNode->hiddenkey = HiddenKey(_str);			//전부 초기화
+
+	return newNode;	
+}
+
+//노드를 추가하는 함수
+void AddNode(sTree * _tree, sNode * _visit, sNode * _newNode)
+{
+	if (_tree->count == 0)									//만약 첫번째 입력시
+	{
+		_tree->root = _newNode;
+		_tree->count++;
+		return;												//함수 종료
+	}
+
+	else													//그외의 경우
+	{
+		if (_visit->hiddenkey > _newNode->hiddenkey)		//히든키기준 작을경우
+		{
+			if (_visit->left == nullptr)
+			{
+				_visit->left = _newNode;					//입력
+				_tree->count++;
+			}
+
+			else
+			{
+				AddNode(_tree, _visit->left, _newNode);		//이미 있는 노드일경우 그 노드 아레로
+			}
+		}
+
+		else if (_visit->hiddenkey < _newNode->hiddenkey)	//히든키기준 클경우
+		{
+			if (_visit->right == nullptr)
+			{
+				_visit->right = _newNode;					//입력
+				_tree->count++;
+			}
+
+			else
+			{
+				AddNode(_tree, _visit->right, _newNode);	//이미 있는 노드일경우 그 노드 아레로
+			}
+		}
+	}
+}
+
+//노드 검색 함수
+sNode * SearchNode(sTree * _tree, sNode * _visit, int _hiddenKey)
+{
+	if (_visit == nullptr)
+	{
+		return nullptr;
+	}
+
+	else
+	{
+		if (_hiddenKey == _visit->hiddenkey)						//고유키가 같을경우
+		{
+			return _visit;											//함수종료
+		}
+
+		else if (_visit->hiddenkey > _hiddenKey)					//작을경우
+		{	
+			return SearchNode(_tree, _visit->left, _hiddenKey);		//왼쪽 노드로 이동
+		}
+
+		else if (_visit->hiddenkey < _hiddenKey)					//클경우
+		{
+			return SearchNode(_tree, _visit->right, _hiddenKey);	//오른쪽 노드로 이동
+		}
+	}
+}
+
+//트리삭제함수
+void DestroyTree(sTree * _tree, sNode * _visit)
+{
+	if (_visit == nullptr)							//만약 방문한 노드가 존재하지 않는 노드면 함수종료
+	{
+		return;
+	}
+													//트리의 삭제를 하려면 맨아래의 노드부터 삭제할 필요가 잇으므로
+													//후위순회를 하여 삭제를 하는것이 적합하다
+	else
+	{
+		DestroyTree(_tree, _visit->left);			//자신의 왼쪽 자식을 삭제하기위해 재귀함수 호출		
+		DestroyTree(_tree, _visit->right);			//자신의 오른쪽 자식을 삭제하기위해 재귀함수 호출
+		delete _visit;								//자신을 마지막에 삭제
+		_visit = nullptr;
+	}									
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+//HashTable.cpp
+
+#include "HashTable.h"
+
+//키 변환 함수
+int KeyTrans(int _key)					
+{
+	return _key % 199;						//소수 199 미만의 수로 변환
+}
+
+//해쉬테이블 생성 함수
+sHashTable * CreateHashTable()
+{
+	sHashTable * hash = new sHashTable;		//해쉬생성
+	hash->tree = new sTree *[199];			//199칸 배열생성
+
+	for (int i = 0; i < 199; i++)			
+	{
+		hash->tree[i] = nullptr;			//전부 초기화
+	}
+
+	return hash;
+}
+
+//트리 생성 함수
+sTree * CreateTree()						
+{
+	sTree * tree = new sTree;				//트리 생성
+	tree->root = nullptr;					
+	tree->count = 0;						//초기화
+
+	return tree;
+}
+
+//입력 함수
+void Set(sHashTable * _hash, char * _str)											
+{
+	sNode * newNode = CreateNode(_str);										//새로운 노드 생성
+	int index = KeyTrans(newNode->key);										//키 변환
+	
+	if (_hash->tree[index] == nullptr)										//만약 해당 트리의 첫번째 노드라면
+	{
+		_hash->tree[index] = CreateTree();									//일단 트리를 생성
+	}
+
+	AddNode(_hash->tree[index], _hash->tree[index]->root, newNode);			//그리고 트리에 새로운 노드를 담
+}
+
+//출력 함수
+sNode * Get(sHashTable * _hash, char * _str)
+{
+	int index = KeyTrans(Key(_str));														//문자열을 기준으로 저장되어있을 공간을 찾아냄
+	sNode * node = nullptr;
+
+	if (_hash->tree[index] != nullptr)														//오류방지
+	{
+		node = SearchNode(_hash->tree[index], _hash->tree[index]->root, HiddenKey(_str));	//있을만한 곳에서 찾기 시작
+
+		if (node != nullptr)																//찾는데 성공했다면
+		{
+			return node;																	//성공
+		}
+	}
+
+	return nullptr;																			//실패
+}
+
+void DestroyHashTable(sHashTable * _hash)													//해쉬 테이블 삭제
+{
+	for (int i = 0; i < 199; i++)
+	{
+		if (_hash->tree[i] != nullptr)														//비지 않은 곳만
+		{
+			DestroyTree(_hash->tree[i], _hash->tree[i]->root);								//트리의 노드 삭제
+			delete _hash->tree[i];															//트리 삭제
+		}
+	}
+
+	delete _hash->tree;																		//트리배열 삭제
+	delete _hash;																			//해쉬테이블 삭제
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+//main.cpp
+
+#include "HashTable.h"
+
+int main()
+{
+	sHashTable * hash = CreateHashTable();					//생성
+	sNode * node = nullptr;									//검색용
+	while (1)
+	{
+		char str[30];
+		bool exit = false;
+		int num;
+		printf("1. 입력, 2. 검색, 3. 종료 : ");
+		scanf("%d", &num);
+
+		switch (num)
+		{
+		case 1:
+			scanf("%s", str);
+			Set(hash, str);									//입력
+			break;
+		case 2:
+			scanf("%s", str);
+			node = Get(hash, str);							//검색
+
+			if (node == nullptr)							//오류 방지
+			{
+				printf("null\n");								
+				break;							
+			}
+
+															//출력
+			printf("문자열 : %s, 키 : %d, 고유키 : %d\n", node->str, node->key, node->hiddenkey);
+			break;											
+		case 3:
+			exit = true;
+			break;
+		}
+
+		if (exit)
+		{
+			DestroyHashTable(hash);
+			return 0;
+		}
+	}
+}
