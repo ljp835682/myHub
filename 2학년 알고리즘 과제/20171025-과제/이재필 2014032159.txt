@@ -1,0 +1,215 @@
+//Queue.h
+
+#include <stdio.h>
+#include <string.h>
+
+struct sNode			//노드 구조체
+{
+	char data;
+	int priority;
+	sNode * next;
+};
+
+struct sQueue			//원형큐 구조체
+{
+	sNode * front;
+	sNode * rear;
+	int mSize;
+	int mCount;
+};
+
+void CreateQueue(sQueue * _queue, int _size);				//큐 생성
+bool EnQueue(sQueue * _queue, char _data, int _priority);	//큐에 새로운 데이터 집어넣기
+sNode * DeQueue(sQueue * _queue);							//큐의 맨앞 데이터 빼내기
+bool IsMinCheck(sQueue * _queue, int _priority);			//큐에 쌓인 노드들의 내부데이터와 _priority 를의 크기를 비교하는 함수
+void DestroyQueue(sQueue * _queue);							//큐 삭제
+
+//-----------------------------------------------------------------------------------
+//Queue.cpp
+
+#include "Queue.h"
+
+void CreateQueue(sQueue * _queue, int _size)
+{
+	_queue->front = nullptr;
+	_queue->rear = nullptr;
+	_queue->mSize = _size;
+	_queue->mCount = 0;
+
+	for (int i = 0; i < _size + 1; i++)					//두번쨰 인자값 + 1 만큼 반복
+	{
+		sNode * newNode = new sNode;					//새로운 노드 생성
+		newNode->data = NULL;
+		newNode->priority = NULL;
+		newNode->next = nullptr;
+
+		if (i == 0)										//첫번째 상황일 경우
+		{
+			_queue->front = newNode;					//해당 노드를 front로 지정
+		}
+
+		else if (i == 1)								//두번째 상황일 경우
+		{
+			_queue->front->next = newNode;				//해당 노드를 front의 다음에 배치
+			_queue->rear = newNode;						//해당 노드를 rear로 지정
+		}
+
+		else											//그외의 상황일 경우
+		{
+			_queue->rear->next = newNode;				//해당 노드를 rear 다음에 배치
+			_queue->rear = newNode;						//해당 노드를 rear로 지정
+		}
+	}
+
+	_queue->rear->next = _queue->front;					//반복문이 끝나 지정된 횟수만큼 노드들이 생성되고난후 맨 마지막 노드의 다음을 front로 지정
+	_queue->rear = _queue->front->next;					//그후 새로운 데이터가 들어올곳을 더미노드인 front의 다음 노드로 지정
+}
+
+bool EnQueue(sQueue * _queue, char _data, int _priority)
+{
+	if (_queue->rear == _queue->front)					//만약 rear와 front가 같다면
+	{
+		return false;									//현재 원형큐가 포화상태인것이므로 넣을수 없게합니다
+	}
+
+	_queue->rear->data = _data;							
+	_queue->rear->priority = _priority;					//rear의 데이터에 저장
+	_queue->rear = _queue->rear->next;					//다음 입력은 다음 노드에 입력할수있도록 rear 다음 노드로 이동함
+
+	_queue->mCount++;									//현재 입력된 노드수 증가
+
+	return true;
+}
+
+sNode * DeQueue(sQueue * _queue)
+{
+	sNode * tempNode = new sNode;						//새로운 노드 생성
+	_queue->front = _queue->front->next;				//front는 가장 앞의 노드로 이동
+
+	memcpy(tempNode, _queue->front, sizeof(sNode));		//front의 데이터를 새로운 노드에 깊은 복사
+	
+	_queue->front->data = NULL;							
+	_queue->front->priority = NULL;						//front의 데이터 삭제
+
+	_queue->mCount--;									//현재 입력된 노드수 감소
+
+	return tempNode;									//front의 이전값을 깊은복사한 노드를 외부로 리턴
+}
+
+bool IsMinCheck(sQueue * _queue, int _priority)
+{
+	sNode * searchNode = _queue->front->next;					//가장 앞의 노드에서부터 비교하기위해 front의 다음 노드로 검색 노드 지정
+
+	while (1)
+	{
+		if (searchNode == _queue->front)						//만약 검색노드가 front라면 한바퀴를 다돌동안 아래에서 전부 만족한것이므로
+		{
+			return true;										//true 리턴
+		}
+
+		else if (searchNode->priority > _priority || searchNode->priority == NULL)		//만약 빈 노드이거나 검색 노드가 가리키는 노드의 우선도가 입력된 우선도보다 크다면
+		{
+			searchNode = searchNode->next;												//다음 노드를 비교할 준비
+		}
+
+		else
+		{
+			return false;																//작다면 false 리턴
+		}
+	}
+}
+
+void DestroyQueue(sQueue * _queue)	
+{
+	for (int i = 0; i < _queue->mSize; i++)						//큐의 사이즈만큼 반복
+	{
+		sNode * destroyNode = _queue->front;					//삭제용 노드에 front 지정
+		_queue->front = _queue->front->next;					//front는 다음 노드로 이동
+
+		delete destroyNode;										//삭제용 노드 반환
+	}
+}
+
+//-----------------------------------------------------------------------------------
+//main.cpp
+
+#include  "Queue.h"
+
+int main()
+{
+	sQueue * queue = nullptr;		//큐 구조체
+	queue = new sQueue;				//동적할당
+
+	int inputSize;					//큐의 크기 입력용 공간
+	char * tempCharArray;			//큐의 데이터 입력용 공간
+	int * tempIntArray;				//큐의 우선순위 입력용 공간
+
+	printf("데이터 갯수 : ");
+	scanf("%d", &inputSize);				//크기 입력
+	fflush(stdin);
+
+	tempCharArray = new char[inputSize];		//그만큼 동적할당
+	tempIntArray = new int[inputSize];			//그만큼 동적할당
+	CreateQueue(queue, inputSize);				//큐의 노드 데이터 갯수만큼 생성
+
+	printf("\n");
+
+	for (int i = 0; i < inputSize; i++)
+	{
+		fflush(stdin);
+		printf("데이터 : ");
+		scanf("%c", &tempCharArray[i]);			//데이터 임시 저장공간에 저장
+	}
+
+	printf("\n");
+
+	for (int i = 0; i < inputSize; i++)
+	{
+		fflush(stdin);
+		printf("우선 순위 : ");
+		scanf("%d", &tempIntArray[i]);			//우선순위 임시 저장공간에 저장
+	}
+
+	printf("\n");
+
+	for (int i = 0; i < inputSize; i++)
+	{
+		if (!EnQueue(queue, tempCharArray[i], tempIntArray[i]))		//노드 데이터 입력
+		{
+			break;
+		}
+	}
+
+	delete tempCharArray;
+	delete tempIntArray;					//둘다 반환
+
+	int count = 0;
+
+	while (1)
+	{
+		sNode * getNode = DeQueue(queue);						//맨앞의 노드를 꺼냄
+
+		if (IsMinCheck(queue, getNode->priority))				//가장 작은지 체크
+		{
+			printf("%c", getNode->data);						//작다면 출력
+			count++;
+		}
+
+		else													//아니라면
+		{
+			EnQueue(queue, getNode->data, getNode->priority);	//다시 큐의 맨뒤에 집어넣음
+		}
+			
+		delete getNode;											//사용한 노드 삭제
+
+		if (count == queue->mSize)								//size만큼 출력하였다면
+		{
+			printf("\n\n");						
+			break;												//반복문 탈출
+		}
+	}
+
+	DestroyQueue(queue);										//프로그렘 종료전 큐 삭제
+}
+
+//-----------------------------------------------------------------------------------
