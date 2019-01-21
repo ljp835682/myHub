@@ -1,0 +1,25 @@
+클라이언트 구조체를 동적할당하고
+그 구조체를 클리어(제로메모리)
+그 구조체의 소켓에 인자값 소켓
+
+_Clientinfo * AddClient(SOCKET _sock,SOCKADDR_IN clientaddr)
+{
+_ClientInfo  * ptr = new CilentInfo;
+Zeromemory(ptr,sizeof(_ClientInfo));
+ptr->sock = _sock;
+ptr->info.gvalue = NODATA;
+memcpy(&(ptr->clientaddr).&clientaddr,sizeof(clientaddr));
+count++;
+return ptr;
+}
+
+클로즈소켓 구성
+카운트만큼 포문을 돌아서 일단 배열에서 그 구조체를 찾음
+그 구조체를 딜리트해서 메모리해제함
+그리고 배열을 땡겨줘야함
+그리고 마지막을 nullptr을 넣어줌
+포문이 끝나면 Count--;
+
+클라
+
+
